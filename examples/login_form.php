@@ -1,83 +1,47 @@
 <?php
 
-include("../IPVikingAPI.php");
+session_start();
 
-/*
- * This could be used when someone is attempting to login
- * One can check the IP of the person logging in for risk
- * - For example disallow proxies to login
- * - Block all high risk
- * - Show custom messages to user based on findings
- * - Use the geolocation information
- * - Assing high risk to the user and limit actions
- * - more creative ways.....
- */
+/* If login POST exec API call to have vars in scope*/
+if(isset($_POST['login']))
+	require("process_api_call.php");
 
-$ip = $_SERVER['REMOTE_ADDR'];
-
-$requestdata = array('apikey' => '8292777557e8eb8bc169c2af29e87ac07d0f1ac4857048044402dbee06ba5cea',
-					'method' => 'ipq',
-					'ip' => $ip);
-$IPViking = new IPvikingRequest("http://us.api.ipviking.com/api/", "POST",$requestdata);
-$IPViking->execute();
-$IPViking_header = $IPViking->getResponseInfo();
-$IPViking_body = $IPViking->getResponseBody();
-$IPViking_http_code = $IPViking_header['http_code'];
-$IPViking_json = json_decode($IPViking_body);
-
-/* 
- * These are the categories we care about for login auth
- * We can implement more categories later
- * or even protocols if we want to see spesific malware/bad stuff
- */
-$botnet = FALSE; $proxy = FALSE; $bogonu = FALSE; $bogona = FALSE; $whitelist=FALSE;
-
-/* 
- * Code 302 is always success other codes indicate failure/errors
- * Let's proccess 302 and get information on the IP we have at hand
- */
-switch($IPViking_http_code)
-{
-	case 302:
-		/* First we get the IPQ score */
-		$ipq_score = $IPViking_json->response->risk_factor;
-		/* If there is entries present collect them */
-		if(isset($IPViking_json->response->entries)) 
-		{
-			foreach($IPViking_json->response->entries AS $entries)
-			{
-				if($entries->category_name=="Botnet") $botnet = TRUE;
-				if($entries->category_name=="Proxy") $proxy = TRUE;
-				if($entries->category_name=="Bogon Unadv") $bogona = TRUE;
-				if($entries->category_name=="Bogon Unass") $bogonu = TRUE;
-				if($entries->category_name=="Global Whitelist") $whitelist = TRUE;
-			}
-			/* If whitelist is detected ignore all */
-			if($whitelist==FALSE) {			
-				if($proxy && $botnet)
-					$error =  "Login declined due to high risk IP. ";
-				elseif($botnet && $ipq_score >= 80 ) 
-					$error =  "Login declined due to suspected botnet. ";
-				elseif($proxy) 
-					$error =  "Login declined due to use of proxy. ";
-				elseif($ipq_score >= 82) 
-					$error =  "Login declined due to high risk. ";
-				elseif($bogonu && $ipq_score >= 65) 
-					$error =  "Login declined due to high risk. ";
-				elseif($ipq_score >= 51) 
-					$error =  "Due to high risk your actions will be limited on the site ";
-				elseif($ipq_score >= 1) 
-					/* Trigger captcha for lower score to be sure*/
-					$force_captcha=TRUE;
-				else {
-					/* Good score  no risk */
-				} 
-			} /* whitelist bool */ 
-		} /* isset entries */
-		break;
-	default:
-		$error = 'Error:'.$IPViking->getStatusCodeMessage($IPViking_http_code).' '.$IPViking_http_code;
-		break;
-} /* IPViking switch */
 
 ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>	
+	<title>IPViking API Login Page</title>	
+	<link rel="shortcut icon" href="favicon.ico" />	
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8" />		
+</head>
+<body>	
+	<div id="corp-header"></div>	
+	<div id="logo-header">		
+		<h1 id="logo"><a href="https://ipviking.com"><span class="hidden">IPViking</span></a></h1>   			
+	</div>		
+	<div id="login-box" class="common">		
+	
+    <span class="fieldError"><?php 
+    		if($error)
+    			echo $error;
+    ?></span>
+    
+		<form class="common-form" method="POST">	
+			<fieldset>
+				<label>Username</label>
+				<input class="text-input" type="input" name="username" value="" /> 
+			</fieldset>			
+			<fieldset>
+				<label>Password</label>
+				<input class="text-input" type="password" name="password" value="" /> 
+			</fieldset>								
+			<fieldset class="checkbox-row">
+				<input type="checkbox" name="remember" value="1" /> <small>Remember me</small>
+			</fieldset>
+			<input class="submit-button" type="submit" name="submit" value="Login" />
+		</form>				
+	</div>					
+	<h6 id="footer-text"><img src="images/login/lock_icon.png" alt="" /> Secure Login</h6>
+</body>
+</html>
